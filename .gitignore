@@ -1,18 +1,53 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
 
-# Other files and folders
-.settings/
+const puppeteer = require('puppeteer');
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
+async function getFlightPrices(source, destination, date) {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+  await page.goto('https://www.google.com/flights');
+
+  // Type the source, destination, and date into the input fields
+  await page.type('input[aria-label="Flying from"]', source);
+  await page.type('input[aria-label="Flying to"]', destination);
+  await page.click('input[aria-label="Departure date"]');
+  await page.keyboard.type(date);
+
+  // Submit the search form
+  await page.click('button[jsaction="pane.search"]');
+
+  // Wait for the flight results to load
+  await page.waitForSelector('.gws-flights-results__collapsed-itinerary');
+
+  // Extract the flight prices
+  const flightPrices = await page.evaluate(() => {
+    const prices = {};
+    const airlines = document.querySelectorAll('.gws-flights-results__collapsed-itinerary .gws-flights__flex-filler.gws-flights__ellipsize.gws-flights-results__carriers');
+
+    airlines.forEach((airline) => {
+      const airlineName = airline.innerText.trim();
+      const priceElement = airline.closest('.gws-flights-results__collapsed-itinerary').querySelector('.gws-flights__ellipsize.gws-flights-results__price');
+      const price = priceElement ? priceElement.innerText.trim() : 'N/A';
+      prices[airlineName] = price;
+    });
+
+    return prices;
+  });
+
+  await browser.close();
+
+  return flightPrices;
+}
+
+// Example usage
+const source = 'Delhi';
+const destination = 'Jaipur';
+const date = '15 April 2023';
+
+getFlightPrices(source, destination, date)
+  .then((flightPrices) => {
+    console.log(flightPrices);
+  })
+  .catch((error) => {
+    console.error('An error occurred:', error);
+  });
